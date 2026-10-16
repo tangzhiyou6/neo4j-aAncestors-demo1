@@ -1,0 +1,4 @@
+com/example/neo4jdemo/AdjacencyAssemblerTest.class
+com/example/neo4jdemo/CypherDslGenerationTest.class
+com/example/neo4jdemo/TemplateTraversalGenerationTest.class
+com/example/neo4jdemo/AdjacencyTraversalServiceTest.class
