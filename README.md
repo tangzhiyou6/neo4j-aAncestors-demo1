@@ -140,7 +140,14 @@ Neo4j Driver 返回的 `Path` 对象原生包含 `Iterable<Path.Segment>`：
 3. **族谱与血缘关系 (Ancestors)**（曾祖父/母 -> 祖父/母/外祖父/母 -> 父母 -> 本人 -> 儿子，深度演示向上溯源 Ancestors）
 
 ### 导入方式：
-- **方式 1（推荐）**：启动 Spring Boot 应用后，直接调用 REST 接口执行一键初始化：
+- **方式 0（推荐，Docker 一键搭建）**：使用仓库自带的 `docker-compose.yml` 与 `init-neo4j.sh`：
+  ```bash
+  docker compose up -d      # 启动 Neo4j 5.26(APOC 已启用,端口 7474/7687,认证同 application.yml)
+  ./init-neo4j.sh           # 等待就绪 -> 导入自定义 Cypher 构成查询子图 -> 切换为程序密码(幂等可重复执行)
+  ```
+  > 密码 `mZcl6QqjopWQDq/7` 含 `/`，与 `NEO4J_AUTH` 的 `user/password` 分隔符冲突，无法直接通过环境变量设置，
+  > 因此脚本先以临时密码启动，再通过 `ALTER CURRENT USER SET PASSWORD` 切换（结果持久化在数据卷，仅需一次）。
+- **方式 1**：启动 Spring Boot 应用后，直接调用 REST 接口执行一键初始化：
   ```bash
   curl -X POST http://localhost:8080/api/graph/init-data
   ```
@@ -149,6 +156,11 @@ Neo4j Driver 返回的 `Path` 对象原生包含 `Iterable<Path.Segment>`：
   ```bash
   cypher-shell -u neo4j -p password -f src/main/resources/cypher/init-adjacency-data.cypher
   ```
+
+> ⚠️ **脚本编写注意事项**（Cypher 语义）：关系创建语句必须先 `MATCH` 绑定两端节点再 `MERGE` 关系，
+> 例如 `MATCH (a:GraphNode {id:'X'}), (b:GraphNode {id:'Y'}) MERGE (a)-[:PARENT_OF]->(b);`。
+> Cypher 变量不跨语句生效；且 `MERGE` 对完全未绑定的模式（如 `MERGE (:A)-[:R]->(:B)`）在整体不匹配时会连节点一起创建，
+> 轻则产生无标签裸节点，重则撞唯一约束报错。
 
 ---
 

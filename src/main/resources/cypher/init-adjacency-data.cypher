@@ -102,24 +102,39 @@ SET emp2.name = '李四 (图数据库工程师)',
     emp2.status = 'ACTIVE';
 
 // 建立组织机构邻接关系 (PARENT_OF)
+// 注:必须先 MATCH 绑定两端节点再 MERGE 关系。Cypher 的 MERGE 对完全未绑定的模式
+//     (例如 MERGE (:A)-[:R]->(:B))在整体不匹配时会连节点一起创建,导致撞唯一约束或产生裸节点。
+MATCH (root:GraphNode {id: 'CORP_001'}), (tech:GraphNode {id: 'DEPT_TECH'})
 MERGE (root)-[:PARENT_OF {weight: 1.0, established: '2010-01-01'}]->(tech);
+MATCH (root:GraphNode {id: 'CORP_001'}), (ops:GraphNode {id: 'DEPT_OPS'})
 MERGE (root)-[:PARENT_OF {weight: 1.0, established: '2010-01-01'}]->(ops);
+MATCH (root:GraphNode {id: 'CORP_001'}), (finance:GraphNode {id: 'DEPT_FIN'})
 MERGE (root)-[:PARENT_OF {weight: 1.0, established: '2010-01-01'}]->(finance);
 
+MATCH (tech:GraphNode {id: 'DEPT_TECH'}), (ai:GraphNode {id: 'DEPT_AI'})
 MERGE (tech)-[:PARENT_OF {weight: 1.0, established: '2015-06-01'}]->(ai);
+MATCH (tech:GraphNode {id: 'DEPT_TECH'}), (cloud:GraphNode {id: 'DEPT_CLOUD'})
 MERGE (tech)-[:PARENT_OF {weight: 1.0, established: '2015-06-01'}]->(cloud);
+MATCH (tech:GraphNode {id: 'DEPT_TECH'}), (bigdata:GraphNode {id: 'DEPT_DATA'})
 MERGE (tech)-[:PARENT_OF {weight: 1.0, established: '2016-03-01'}]->(bigdata);
 
+MATCH (ai:GraphNode {id: 'DEPT_AI'}), (nlp:GraphNode {id: 'TEAM_NLP'})
 MERGE (ai)-[:PARENT_OF {weight: 1.0, established: '2020-01-01'}]->(nlp);
+MATCH (ai:GraphNode {id: 'DEPT_AI'}), (graphTeam:GraphNode {id: 'TEAM_GRAPH'})
 MERGE (ai)-[:PARENT_OF {weight: 1.0, established: '2020-01-01'}]->(graphTeam);
+MATCH (ai:GraphNode {id: 'DEPT_AI'}), (cv:GraphNode {id: 'TEAM_CV'})
 MERGE (ai)-[:PARENT_OF {weight: 1.0, established: '2020-01-01'}]->(cv);
 
 // 建立员工归属与汇报邻接关系 (BELONGS_TO / REPORTS_TO)
+MATCH (emp1:GraphNode {id: 'EMP_1001'}), (graphTeam:GraphNode {id: 'TEAM_GRAPH'})
 MERGE (emp1)-[:BELONGS_TO {joinedDate: '2021-05-10'}]->(graphTeam);
+MATCH (emp2:GraphNode {id: 'EMP_1002'}), (graphTeam:GraphNode {id: 'TEAM_GRAPH'})
 MERGE (emp2)-[:BELONGS_TO {joinedDate: '2022-08-15'}]->(graphTeam);
+MATCH (emp2:GraphNode {id: 'EMP_1002'}), (emp1:GraphNode {id: 'EMP_1001'})
 MERGE (emp2)-[:REPORTS_TO {channel: 'DIRECT'}]->(emp1);
 
 // 跨部门矩阵汇报（虚线汇报，展示复杂邻接网络）
+MATCH (emp1:GraphNode {id: 'EMP_1001'}), (bigdata:GraphNode {id: 'DEPT_DATA'})
 MERGE (emp1)-[:REPORTS_TO {channel: 'DOTTED_LINE'}]->(bigdata);
 
 
@@ -169,15 +184,22 @@ SET chip.name = '自研5nm自动驾驶主控芯片',
     chip.level = 3;
 
 // 建立物料邻接关系 (COMPOSED_OF 与 DEPENDS_ON)
+MATCH (car:GraphNode {id: 'ITEM_EV_CAR'}), (battery:GraphNode {id: 'ITEM_BATTERY_PACK'})
 MERGE (car)-[:COMPOSED_OF {quantity: 1}]->(battery);
+MATCH (car:GraphNode {id: 'ITEM_EV_CAR'}), (chassis:GraphNode {id: 'ITEM_CHASSIS'})
 MERGE (car)-[:COMPOSED_OF {quantity: 1}]->(chassis);
+MATCH (car:GraphNode {id: 'ITEM_EV_CAR'}), (cockpit:GraphNode {id: 'ITEM_SMART_COCKPIT'})
 MERGE (car)-[:COMPOSED_OF {quantity: 1}]->(cockpit);
 
+MATCH (battery:GraphNode {id: 'ITEM_BATTERY_PACK'}), (bms:GraphNode {id: 'ITEM_BMS_MODULE'})
 MERGE (battery)-[:COMPOSED_OF {quantity: 1}]->(bms);
+MATCH (battery:GraphNode {id: 'ITEM_BATTERY_PACK'}), (cell:GraphNode {id: 'ITEM_LFP_CELL'})
 MERGE (battery)-[:COMPOSED_OF {quantity: 192}]->(cell);
 
 // 依赖关系 (多父邻接示例：BMS 和 智慧座舱 共同依赖 自动驾驶主控芯片)
+MATCH (bms:GraphNode {id: 'ITEM_BMS_MODULE'}), (chip:GraphNode {id: 'ITEM_AI_SOC'})
 MERGE (bms)-[:DEPENDS_ON {criticality: 'HIGH'}]->(chip);
+MATCH (cockpit:GraphNode {id: 'ITEM_SMART_COCKPIT'}), (chip:GraphNode {id: 'ITEM_AI_SOC'})
 MERGE (cockpit)-[:DEPENDS_ON {criticality: 'CRITICAL'}]->(chip);
 
 
@@ -242,18 +264,27 @@ SET child.name = '儿子-陈子涵',
     child.gender = 'MALE';
 
 // 建立血缘邻接图
+MATCH (g_gp1:GraphNode {id: 'PERSON_G_GP1'}), (gp_father:GraphNode {id: 'PERSON_GP_F'})
 MERGE (g_gp1)-[:PARENT_OF]->(gp_father);
+MATCH (g_gp2:GraphNode {id: 'PERSON_G_GP2'}), (gp_father:GraphNode {id: 'PERSON_GP_F'})
 MERGE (g_gp2)-[:PARENT_OF]->(gp_father);
 
+MATCH (gp_father:GraphNode {id: 'PERSON_GP_F'}), (father:GraphNode {id: 'PERSON_FATHER'})
 MERGE (gp_father)-[:PARENT_OF]->(father);
+MATCH (gp_mother:GraphNode {id: 'PERSON_GP_M'}), (father:GraphNode {id: 'PERSON_FATHER'})
 MERGE (gp_mother)-[:PARENT_OF]->(father);
 
+MATCH (out_gp_f:GraphNode {id: 'PERSON_OUT_GP_F'}), (mother:GraphNode {id: 'PERSON_MOTHER'})
 MERGE (out_gp_f)-[:PARENT_OF]->(mother);
+MATCH (out_gp_m:GraphNode {id: 'PERSON_OUT_GP_M'}), (mother:GraphNode {id: 'PERSON_MOTHER'})
 MERGE (out_gp_m)-[:PARENT_OF]->(mother);
 
+MATCH (father:GraphNode {id: 'PERSON_FATHER'}), (self:GraphNode {id: 'PERSON_SELF'})
 MERGE (father)-[:PARENT_OF]->(self);
+MATCH (mother:GraphNode {id: 'PERSON_MOTHER'}), (self:GraphNode {id: 'PERSON_SELF'})
 MERGE (mother)-[:PARENT_OF]->(self);
 
+MATCH (self:GraphNode {id: 'PERSON_SELF'}), (child:GraphNode {id: 'PERSON_CHILD'})
 MERGE (self)-[:PARENT_OF]->(child);
 
 

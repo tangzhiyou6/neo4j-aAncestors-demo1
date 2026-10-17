@@ -1,0 +1,51 @@
+# ==============================================================================
+# 根据本项目 application.yml 配置搭建的 Neo4j 环境
+#   - URI:      bolt://localhost:7687   (对应 spring.neo4j.uri)
+#   - 账号:     neo4j                   (对应 spring.neo4j.authentication.username)
+#   - 密码:     mZcl6QqjopWQDq/7        (对应 spring.neo4j.authentication.password)
+#   - 数据库:   neo4j                   (对应 spring.data.neo4j.database)
+#   - 插件:     APOC                    (对应 ApocTraversalStrategy 的 apoc.path.expandConfig)
+#
+#   自定义 Cypher 数据 (src/main/resources/cypher/init-adjacency-data.cypher)
+#   挂载到 /startup,容器启动完成后自动执行,直接构成可查询的子图数据。
+#
+#   ⚠️ 关于密码:程序配置的密码 mZcl6QqjopWQDq/7 含有 '/',与 NEO4J_AUTH 的
+#   user/password 分隔符冲突,无法直接作为环境变量设置。因此流程为:
+#     1. 首次启动使用无斜杠的临时密码 initial-pass-4demo(仅数据卷为空时生效);
+#     2. 容器就绪后执行一次密码切换(结果持久化在 /data 卷,只需做一次):
+#        docker exec neo4j-adjacency-demo cypher-shell -u neo4j -p initial-pass-4demo \
+#          "ALTER CURRENT USER SET PASSWORD FROM 'initial-pass-4demo' TO 'mZcl6QqjopWQDq/7';"
+#     3. 之后 Spring Boot 直接用 application.yml 中的账号密码连接。
+#
+#   启动:  docker compose up -d
+#   停止:  docker compose down          (数据保留在 named volume 中)
+#   清空:  docker compose down -v       (连同数据卷一起删除)
+# ==============================================================================
+services:
+  neo4j:
+    image: neo4j:5.26-community
+    container_name: neo4j-adjacency-demo
+    restart: unless-stopped
+    environment:
+      # 临时初始密码,容器就绪后通过 ALTER CURRENT USER 切换为程序密码(见文件头说明)
+      NEO4J_AUTH: neo4j/initial-pass-4demo
+      # 启用 APOC(方案三 ApocTraversalStrategy 依赖 apoc.path.expandConfig)
+      NEO4J_PLUGINS: '["apoc"]'
+      # 允许 APOC 过程 unrestricted 访问
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      # 内存按需调整(本机演示即可)
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 1G
+      NEO4J_server_memory_pagecache_size: 512m
+    ports:
+      - "7474:7474"   # HTTP(Browser: http://localhost:7474)
+      - "7687:7687"   # Bolt(Spring Boot 通过此端口连接)
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      # 自定义 Cypher 数据脚本挂载进容器,由 init-neo4j.sh 通过 cypher-shell -f 执行导入
+      - ./src/main/resources/cypher/init-adjacency-data.cypher:/cypher-init/init-adjacency-data.cypher:ro
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
