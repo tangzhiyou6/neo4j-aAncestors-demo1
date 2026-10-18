@@ -45,6 +45,7 @@ services:
       - neo4j_logs:/logs
       # 自定义 Cypher 数据脚本挂载进容器,由 init-neo4j.sh 通过 cypher-shell -f 执行导入
       - ./src/main/resources/cypher/init-adjacency-data.cypher:/cypher-init/init-adjacency-data.cypher:ro
+      - ./neo4j-spic-audit-graph:/cypher/
 
 volumes:
   neo4j_data:
