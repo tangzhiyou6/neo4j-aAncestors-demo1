@@ -42,13 +42,10 @@
 
 
 // =============================================================================
-// 一、主查询：返回 8 段路径（三段签约链 + 三段物流链 + 左右两条风险线索链）
+// 一、主查询：返回 6 段路径（三段签约链 + 三段物流链 
 // =============================================================================
 // 线索类型清单：0101（规则6「交易双方存在异常关联关系」）落图的线索类型，
 // 主类型 + 6 种具体关联类型（与 16 号文件口径一致），按实际落图口径增减
-WITH ['交易双方存在异常关联关系',
-      '企业电话相同', '注册地址相同', '高管姓名相同',
-      '股东相同（自然人）', '股东相同（企业）', '股东与高管姓名相同'] AS riskTypes
 
 // 1. 物流证据：同一物料 m 串起 c1 的入库与 c2/c3 的出库
 MATCH (m:dws_dsjsj_zstp_vertex_wl)-[:dws_dsjsj_zstp_edge_wl_lywl]->(rk:dws_dsjsj_zstp_vertex_rk)
@@ -72,24 +69,17 @@ WHERE s1 <> gA AND s1 <> gB AND s1 <> s2
   AND gA.flag_gdtqy = '是' AND gB.flag_gdtqy = '是'
 
 // 3. 同一 (s1,gA,gB,s2,m) 只取三份合同签订时间最早的一组证据
-WITH riskTypes, s1, gA, gB, s2, m, c1, c2, c3, rk, ck2, ck3,
+WITH s1, gA, gB, s2, m, c1, c2, c3, rk, ck2, ck3,
      coalesce(rq1.sign_time, rq2.sign_time, c1.sign_time) AS t1,
      coalesce(rq3.sign_time, rq4.sign_time, c2.sign_time) AS t2,
      coalesce(rq5.sign_time, rq6.sign_time, c3.sign_time) AS t3
 ORDER BY t1 ASC, t2 ASC, t3 ASC,
          c1.object_key ASC, c2.object_key ASC, c3.object_key ASC
-WITH riskTypes, s1, gA, gB, s2, m,
+WITH s1, gA, gB, s2, m,
      collect({c1: c1, c2: c2, c3: c3, rk: rk, ck2: ck2, ck3: ck3})[0] AS ev
 
-// 4. 0101 结果：左右两对交易主体各挂一条「交易双方存在异常关联关系」线索
-MATCH (s1)-[:dws_dsjsj_zstp_edge_qy_cffx]->(rl:dws_dsjsj_zstp_vertex_fxxs)<-[:dws_dsjsj_zstp_edge_qy_cffx]-(gA)
-MATCH (gB)-[:dws_dsjsj_zstp_edge_qy_cffx]->(rr:dws_dsjsj_zstp_vertex_fxxs)<-[:dws_dsjsj_zstp_edge_qy_cffx]-(s2)
-WHERE rl.risk_type IN riskTypes
-  AND rr.risk_type IN riskTypes
-WITH DISTINCT s1, gA, gB, s2, m, rl, rr, ev
-
-// 5. 解包证据并还原 8 段路径
-WITH s1, gA, gB, s2, m, rl, rr,
+// 4. 解包证据并还原 8 段路径
+WITH s1, gA, gB, s2, m, 
      ev.c1 AS c1, ev.c2 AS c2, ev.c3 AS c3, ev.rk AS rk, ev.ck2 AS ck2, ev.ck3 AS ck3
 MATCH p0 = (s1)-[:dws_dsjsj_zstp_edge_qy_qd]->(c1)<-[:dws_dsjsj_zstp_edge_qy_qd]-(gA)
 MATCH p1 = (gA)-[:dws_dsjsj_zstp_edge_qy_qd]->(c2)<-[:dws_dsjsj_zstp_edge_qy_qd]-(gB)
@@ -97,9 +87,7 @@ MATCH p2 = (gB)-[:dws_dsjsj_zstp_edge_qy_qd]->(c3)<-[:dws_dsjsj_zstp_edge_qy_qd]
 MATCH p3 = (m)-[:dws_dsjsj_zstp_edge_wl_lywl]->(rk)<-[:dws_dsjsj_zstp_edge_ht_acghtrk]-(c1)
 MATCH p4 = (m)-[:dws_dsjsj_zstp_edge_wl_xhwl]->(ck2)<-[:dws_dsjsj_zstp_edge_ht_axshtck]-(c2)
 MATCH p5 = (m)-[:dws_dsjsj_zstp_edge_wl_xhwl]->(ck3)<-[:dws_dsjsj_zstp_edge_ht_axshtck]-(c3)
-MATCH pL = (s1)-[:dws_dsjsj_zstp_edge_qy_cffx]->(rl)<-[:dws_dsjsj_zstp_edge_qy_cffx]-(gA)
-MATCH pR = (gB)-[:dws_dsjsj_zstp_edge_qy_cffx]->(rr)<-[:dws_dsjsj_zstp_edge_qy_cffx]-(s2)
-RETURN DISTINCT p0, p1, p2, p3, p4, p5, pL, pR;
+RETURN DISTINCT p0, p1, p2, p3, p4, p5
 
 
 // =============================================================================
